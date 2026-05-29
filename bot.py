@@ -3,6 +3,7 @@ import requests
 import telebot
 from bs4 import BeautifulSoup
 import os
+import re
 
 # ===== ДАННЫЕ =====
 TOKEN = os.environ.get("TOKEN")
@@ -25,8 +26,24 @@ sites = [
 DK_KEYWORDS = ["жилой дом"]
 OTHER_KEYWORDS = ["грандичи", "девятовка"]
 
+MIN_PRICE = 150000
+MAX_PRICE = 200000
+
 seen = set()
 print("RESET DONE - bot memory cleared")
+
+
+def extract_price(text):
+    """
+    ищем цену в тексте (BYN, руб, €, $)
+    """
+    numbers = re.findall(r"\d{3,9}", text.replace(" ", ""))
+    prices = [int(n) for n in numbers]
+
+    if not prices:
+        return None
+
+    return min(prices)
 
 
 def get_pages():
@@ -39,20 +56,6 @@ def get_pages():
         pages.append((site, soup))
 
     return pages
-
-
-def extract_card_text(tag):
-    """
-    Берём не всю страницу, а только локальный текст рядом с ссылкой
-    """
-    parts = []
-    parts.append(tag.get_text(" ", strip=True))
-
-    parent = tag.find_parent()
-    if parent:
-        parts.append(parent.get_text(" ", strip=True))
-
-    return " ".join(parts).lower()
 
 
 def check():
@@ -74,9 +77,20 @@ def check():
             if any(x in full_url for x in ["#", "javascript:", "tel:"]):
                 continue
 
-            text_block = extract_card_text(link)
+            text_block = (link.get_text(" ", strip=True) + " " +
+                          (link.find_parent().get_text(" ", strip=True) if link.find_parent() else "")
+                          ).lower()
 
-            # ===== GH B (НЕ ТРОГАЕМ) =====
+            # ===== ЦЕНА =====
+            price = extract_price(text_block)
+
+            if price is None:
+                continue
+
+            if not (MIN_PRICE <= price <= MAX_PRICE):
+                continue
+
+            # ===== ФИЛЬТРЫ =====
             if "ghb.by" in site:
                 if not any(k in text_block for k in DK_KEYWORDS):
                     continue
@@ -84,7 +98,7 @@ def check():
                 if not any(k in text_block for k in OTHER_KEYWORDS):
                     continue
 
-            # ===== УНИКАЛЬНОСТЬ =====
+            # ===== ДУБЛИКАТЫ =====
             if full_url in seen:
                 continue
 
@@ -92,7 +106,7 @@ def check():
 
             bot.send_message(
                 CHAT_ID,
-                f"🏠 Найдено:\n{link.get_text(strip=True)}\n{full_url}"
+                f"🏠 Найдено\nЦена: {price} BYN\n{link.get_text(strip=True)}\n{full_url}"
             )
 
 
