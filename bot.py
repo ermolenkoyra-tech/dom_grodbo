@@ -22,10 +22,9 @@ sites = [
 ]
 
 # ===== НАСТРОЙКИ ПОИСКА =====
-KEYWORDS = ["квартира", "flat", "продажа", "sale"]
-CITY = ["гродно", "hrodna"]
+DK_KEYWORDS = ["жилой дом"]  # только для ghb.by (домостроительный комбинат)
+OTHER_KEYWORDS = ["грандичи", "девятовка"]
 
-# ===== RESET БОТА =====
 seen = set()
 print("RESET DONE - bot memory cleared")
 
@@ -63,13 +62,13 @@ def check():
             if any(x in full_url for x in ["#", "javascript:", "tel:"]):
                 continue
 
-            # ===== ФИЛЬТР: КВАРТИРЫ =====
-            if not any(k in title for k in KEYWORDS):
-                continue
-
-            # ===== ФИЛЬТР: ТОЛЬКО ГРОДНО =====
-            if not any(c in title for c in CITY):
-                continue
+            # ===== ФИЛЬТР ПО САЙТУ =====
+            if "ghb.by" in site:
+                if not any(k in title for k in DK_KEYWORDS):
+                    continue
+            else:
+                if not any(k in title for k in OTHER_KEYWORDS):
+                    continue
 
             # ===== УНИКАЛЬНОСТЬ =====
             if full_url in seen:
@@ -79,9 +78,14 @@ def check():
 
             bot.send_message(
                 CHAT_ID,
-                f"🏠 Квартира (Гродно):\n{title}\n{full_url}"
+                f"🏠 Найдено:\n{title}\n{full_url}"
             )
 
 
 while True:
     try:
+        check()
+    except Exception as e:
+        print("Ошибка:", e)
+
+    time.sleep(300)
