@@ -21,7 +21,6 @@ sites = [
     "https://ghb.by/ru/construction/price_apartments/"
 ]
 
-KEYWORD = "жилой дом"
 seen = set()
 
 
@@ -46,11 +45,16 @@ def check():
 
         text = soup.get_text().lower()
 
-        # 1) ключевое слово
-        if KEYWORD in text:
-            bot.send_message(CHAT_ID, f"🏗 Найдено: {KEYWORD}\n{site}")
+        # ===== ФИЛЬТР ПО САЙТАМ =====
+        if "ghb.by" in site:
+            keywords = ["жилой дом"]
+        else:
+            keywords = ["грандичи", "девятовка"]
 
-        # 2) ссылки
+        if any(k in text for k in keywords):
+            bot.send_message(CHAT_ID, f"🏗 Найдено: {site}")
+
+        # ===== ССЫЛКИ =====
         links = set()
 
         for a in soup.find_all("a"):
@@ -66,7 +70,7 @@ def check():
 
             links.add(full_url)
 
-        # 3) новые ссылки
+        # ===== НОВЫЕ ССЫЛКИ =====
         new_links = links - seen
 
         for item in new_links:
