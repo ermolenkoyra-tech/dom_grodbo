@@ -22,6 +22,7 @@ sites = [
 ]
 
 seen = set()
+print("RESET DONE - bot memory cleared")
 
 
 def get_pages():
@@ -43,39 +44,36 @@ def check():
 
     for site, soup in pages:
 
-        text = soup.get_text().lower()
+        # ===== ИЩЕМ ТОЛЬКО ОБЪЯВЛЕНИЯ КВАРТИР =====
+        cards = soup.find_all("a")
 
-        # ===== ФИЛЬТР ПО САЙТАМ =====
-        if "ghb.by" in site:
-            keywords = ["жилой дом"]
-        else:
-            keywords = ["грандичи", "девятовка"]
+        for card in cards:
+            title = card.get_text(strip=True).lower()
+            href = card.get("href")
 
-        if any(k in text for k in keywords):
-            bot.send_message(CHAT_ID, f"🏗 Найдено: {site}")
-
-        # ===== ССЫЛКИ =====
-        links = set()
-
-        for a in soup.find_all("a"):
-            href = a.get("href")
-
-            if not href:
+            if not href or len(title) < 10:
                 continue
 
             full_url = requests.compat.urljoin(site, href)
 
+            # фильтр мусора
             if any(x in full_url for x in ["#", "javascript:", "tel:"]):
                 continue
 
-            links.add(full_url)
+            # ===== ФИЛЬТР КВАРТИР =====
+            if not any(x in title for x in ["квартира", "flat", "продажа", "sale"]):
+                continue
 
-        # ===== НОВЫЕ ССЫЛКИ =====
-        new_links = links - seen
+            # ===== УНИКАЛЬНОСТЬ =====
+            if full_url in seen:
+                continue
 
-        for item in new_links:
-            seen.add(item)
-            bot.send_message(CHAT_ID, f"🆕 Обновление:\n{item}")
+            seen.add(full_url)
+
+            bot.send_message(
+                CHAT_ID,
+                f"🏠 Квартира:\n{title}\n{full_url}"
+            )
 
 
 while True:
