@@ -22,7 +22,7 @@ sites = [
 ]
 
 # ===== НАСТРОЙКИ ПОИСКА =====
-DK_KEYWORDS = ["жилой дом"]  # только для ghb.by (домостроительный комбинат)
+DK_KEYWORDS = ["жилой дом"]  # только ghb.by (НЕ ТРОГАЕМ)
 OTHER_KEYWORDS = ["грандичи", "девятовка"]
 
 seen = set()
@@ -62,12 +62,16 @@ def check():
             if any(x in full_url for x in ["#", "javascript:", "tel:"]):
                 continue
 
-            # ===== ФИЛЬТР ПО САЙТУ =====
+            # ===== GH B (НЕ ТРОГАЕМ) =====
             if "ghb.by" in site:
                 if not any(k in title for k in DK_KEYWORDS):
                     continue
             else:
-                if not any(k in title for k in OTHER_KEYWORDS):
+                # ===== ОСТАЛЬНЫЕ САЙТЫ: ИЩЕМ В TITLE + ОПИСАНИИ =====
+                description = soup.get_text(" ", strip=True).lower()
+                text_block = (title + " " + description)
+
+                if not any(k in text_block for k in OTHER_KEYWORDS):
                     continue
 
             # ===== УНИКАЛЬНОСТЬ =====
