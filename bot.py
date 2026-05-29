@@ -21,8 +21,8 @@ sites = [
     "https://ghb.by/ru/construction/price_apartments/"
 ]
 
-# ===== НАСТРОЙКИ ПОИСКА =====
-DK_KEYWORDS = ["жилой дом"]  # только ghb.by (НЕ ТРОГАЕМ)
+# ===== НАСТРОЙКИ =====
+DK_KEYWORDS = ["жилой дом"]
 OTHER_KEYWORDS = ["грандичи", "девятовка"]
 
 seen = set()
@@ -41,6 +41,20 @@ def get_pages():
     return pages
 
 
+def extract_card_text(tag):
+    """
+    Берём не всю страницу, а только локальный текст рядом с ссылкой
+    """
+    parts = []
+    parts.append(tag.get_text(" ", strip=True))
+
+    parent = tag.find_parent()
+    if parent:
+        parts.append(parent.get_text(" ", strip=True))
+
+    return " ".join(parts).lower()
+
+
 def check():
     global seen
 
@@ -48,13 +62,11 @@ def check():
 
     for site, soup in pages:
 
-        cards = soup.find_all("a")
+        links = soup.find_all("a")
 
-        for card in cards:
-            title = card.get_text(strip=True).lower()
-            href = card.get("href")
-
-            if not href or len(title) < 10:
+        for link in links:
+            href = link.get("href")
+            if not href:
                 continue
 
             full_url = requests.compat.urljoin(site, href)
@@ -62,15 +74,13 @@ def check():
             if any(x in full_url for x in ["#", "javascript:", "tel:"]):
                 continue
 
+            text_block = extract_card_text(link)
+
             # ===== GH B (НЕ ТРОГАЕМ) =====
             if "ghb.by" in site:
-                if not any(k in title for k in DK_KEYWORDS):
+                if not any(k in text_block for k in DK_KEYWORDS):
                     continue
             else:
-                # ===== ОСТАЛЬНЫЕ САЙТЫ: ИЩЕМ В TITLE + ОПИСАНИИ =====
-                description = soup.get_text(" ", strip=True).lower()
-                text_block = (title + " " + description)
-
                 if not any(k in text_block for k in OTHER_KEYWORDS):
                     continue
 
@@ -82,7 +92,7 @@ def check():
 
             bot.send_message(
                 CHAT_ID,
-                f"🏠 Найдено:\n{title}\n{full_url}"
+                f"🏠 Найдено:\n{link.get_text(strip=True)}\n{full_url}"
             )
 
 
