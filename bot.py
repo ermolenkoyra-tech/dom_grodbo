@@ -49,7 +49,7 @@ def check():
         if "ghb.by" in site:  
             keywords = ["жилой дом"]  
         else:  
-            keywords = ["грандичи", "девятовка"]  
+            keywords = ["грандичи"]  
   
         if any(k in text for k in keywords):  
             bot.send_message(CHAT_ID, f"🏗 Найдено: {site}")  
@@ -84,4 +84,4 @@ while True:
     except Exception as e:  
         print("Ошибка:", e)  
   
-    time.sleep(300)
+    time.sleep(300)  
