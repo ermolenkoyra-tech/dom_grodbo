@@ -4,49 +4,74 @@ import telebot
 from bs4 import BeautifulSoup
 import os
 
-# ===== ДАННЫЕ ИЗ RENDER (сюда НЕ вписываем вручную) =====
+# ===== ДАННЫЕ =====
 TOKEN = os.environ.get("TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
-# ===== САЙТ =====
-URL = "https://ghb.by/ru/construction/price_apartments/"
-KEYWORD = "жилой дом"
-
 bot = telebot.TeleBot(TOKEN)
 
+# ===== САЙТЫ =====
+sites = [
+    "https://grodno.urielt.by/",
+    "https://realt.by/grodno-region/sale/flats/",
+    "https://domovita.by/grodno/flats/sale",
+    "https://gohome.by/sale/flat/grodno",
+    "https://myrealtor.by/ads",
+    "https://www.hommits.by/buy/grodno",
+    "https://ghb.by/ru/construction/price_apartments/"
+]
+
+KEYWORD = "жилой дом"
 seen = set()
 
-def get_page():
+
+def get_pages():
     headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(URL, headers=headers, timeout=10)
-    soup = BeautifulSoup(r.text, "html.parser")
+    pages = []
 
-    text = soup.get_text().lower()
+    for site in sites:
+        r = requests.get(site, headers=headers, timeout=10)
+        soup = BeautifulSoup(r.text, "html.parser")
+        pages.append((site, soup))
 
-    links = set()
-    for a in soup.find_all("a"):
-        href = a.get("href")
-        if href:
-            links.add(href)
-
-    return text, links
+    return pages
 
 
 def check():
     global seen
 
-    text, links = get_page()
+    pages = get_pages()
 
-    # проверка ключевого слова
-    if KEYWORD in text:
-        bot.send_message(CHAT_ID, f"🏗 Найдено: {KEYWORD}")
+    for site, soup in pages:
 
-    # проверка новых ссылок
-    new = links - seen
-    for item in new:
-        bot.send_message(CHAT_ID, f"🆕 Обновление:\n{item}")
+        text = soup.get_text().lower()
 
-    seen = links
+        # 1) ключевое слово
+        if KEYWORD in text:
+            bot.send_message(CHAT_ID, f"🏗 Найдено: {KEYWORD}\n{site}")
+
+        # 2) ссылки
+        links = set()
+
+        for a in soup.find_all("a"):
+            href = a.get("href")
+
+            if not href:
+                continue
+
+            full_url = requests.compat.urljoin(site, href)
+
+            if any(x in full_url for x in ["#", "javascript:", "tel:"]):
+                continue
+
+            links.add(full_url)
+
+        # 3) новые ссылки
+        new_links = links - seen
+
+        for item in new_links:
+            seen.add(item)
+            bot.send_message(CHAT_ID, f"🆕 Обновление:\n{item}")
 
 
 while True:
