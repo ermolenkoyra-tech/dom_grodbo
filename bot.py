@@ -25,6 +25,7 @@ sites = [
 KEYWORDS = ["квартира", "flat", "продажа", "sale"]
 CITY = ["гродно", "hrodna"]
 
+# ===== RESET БОТА =====
 seen = set()
 print("RESET DONE - bot memory cleared")
 
@@ -67,4 +68,20 @@ def check():
                 continue
 
             # ===== ФИЛЬТР: ТОЛЬКО ГРОДНО =====
-            if not any(c in title for c in
+            if not any(c in title for c in CITY):
+                continue
+
+            # ===== УНИКАЛЬНОСТЬ =====
+            if full_url in seen:
+                continue
+
+            seen.add(full_url)
+
+            bot.send_message(
+                CHAT_ID,
+                f"🏠 Квартира (Гродно):\n{title}\n{full_url}"
+            )
+
+
+while True:
+    try:
