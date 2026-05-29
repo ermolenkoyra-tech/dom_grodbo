@@ -1,103 +1,71 @@
-import time  
-import requests  
-import telebot  
-from bs4 import BeautifulSoup  
-import os  
-  
-# ===== ДАННЫЕ =====  
-TOKEN = os.environ.get("TOKEN")  
-CHAT_ID = os.environ.get("CHAT_ID")  
-  
-bot = telebot.TeleBot(TOKEN)  
-  
-# ===== САЙТЫ =====  
-sites = [  
-    "https://grodno.urielt.by/",  
-    "https://realt.by/grodno-region/sale/flats/",  
-    "https://domovita.by/grodno/flats/sale",  
-    "https://gohome.by/sale/flat/grodno",  
-    "https://myrealtor.by/ads",  
-    "https://www.hommits.by/buy/grodno",  
-    "https://ghb.by/ru/construction/price_apartments/"  
-]  
-  
-seen = set()  
-  
-  
-def get_pages():  
-    headers = {"User-Agent": "Mozilla/5.0"}  
-    pages = []  
-  
-    for site in sites:  
-        r = requests.get(site, headers=headers, timeout=10)  
-        soup = BeautifulSoup(r.text, "html.parser")  
-        pages.append((site, soup))  
-  
-    return pages  
-  
-  
-def check():  
-    global seen  
-  
-    pages = get_pages()  
-  
-    for site, soup in pages:  
-  
-        text = soup.get_text().lower()  
-  
-        # ===== ФИЛЬТР ПО САЙТАМ =====  
-        if "ghb.by" in site:  
-            keywords = ["жилой дом"]  
-        else:  
-            keywords = ["грандичи", "грандичи","улица грандичская","грандичская",
-    "улица белые росы",
-    "белые росы",
-    "улица колбасина",
-    "колбасина",
-    "улица кобринская",
-    "кобринская",
-    "улица лизы чаикиной",
-    "лизы чаикиной",
-    "улица янки купалы",
-    "янки купалы",
-    "улица кремко",
-    "кремко",
-    "улица витебская",
-    "витебская",
-    "улица слонимская",
-    "слонимская" "девятовка"]  
-  
-        if any(k in text for k in keywords):  
-            bot.send_message(CHAT_ID, f"🏗 Найдено: {site}")  
-  
-        # ===== ССЫЛКИ =====  
-        links = set()  
-  
-        for a in soup.find_all("a"):  
-            href = a.get("href")  
-  
-            if not href:  
-                continue  
-  
-            full_url = requests.compat.urljoin(site, href)  
-  
-            if any(x in full_url for x in ["#", "javascript:", "tel:"]):  
-                continue  
-  
-            links.add(full_url)  
-  
-        # ===== НОВЫЕ ССЫЛКИ =====  
-        new_links = links - seen  
-  
-        for item in new_links:  
-            seen.add(item)  
-            bot.send_message(CHAT_ID, f"🆕 Обновление:\n{item}")  
-  
-  
-while True:  
-    try:  
-        check()  
-    except Exception as e:  
-        print("Ошибка:", e)  
-  
-    time.sleep(300)  
+def check():
+    global seen
+
+    pages = get_pages()
+
+    for site, soup in pages:
+
+        # ===== ФИЛЬТР ПО САЙТАМ =====
+        if "ghb.by" in site:
+            keywords = ["жилой дом"]
+        else:
+            keywords = [
+                "грандичи", "грандичская", "белые росы",
+                "колбасина", "кобринская", "лизы чаикиной",
+                "янки купалы", "кремко", "витебская",
+                "слонимская", "девятовка"
+            ]
+
+        # ===== ИЩЕМ КАРТОЧКИ ОБЪЯВЛЕНИЙ =====
+        cards = soup.find_all(["h1", "h2", "h3", "a", "p"])
+
+        for card in cards:
+
+            text = card.get_text(" ", strip=True).lower()
+
+            if not text:
+                continue
+
+            # ===== ПРОВЕРКА КЛЮЧЕВЫХ СЛОВ =====
+            if any(k in text for k in keywords):
+
+                link = None
+                if card.name == "a":
+                    link = card.get("href")
+
+                if link:
+                    link = requests.compat.urljoin(site, link)
+                else:
+                    link = site
+
+                if link in seen:
+                    continue
+
+                seen.add(link)
+
+                bot.send_message(
+                    CHAT_ID,
+                    f"🏗 Найдено:\n{text[:200]}\n{link}"
+                )
+
+        # ===== ССЫЛКИ (как запасной вариант) =====
+        links = set()
+
+        for a in soup.find_all("a"):
+            href = a.get("href")
+
+            if not href:
+                continue
+
+            full_url = requests.compat.urljoin(site, href)
+
+            if any(x in full_url for x in ["#", "javascript:", "tel:"]):
+                continue
+
+            links.add(full_url)
+
+        new_links = links - seen
+
+        for item in new_links:
+            seen.add(item)
+            bot.send_message(CHAT_ID, f"🆕 Обновление:\n{item}")
