@@ -21,6 +21,10 @@ sites = [
     "https://ghb.by/ru/construction/price_apartments/"
 ]
 
+# ===== НАСТРОЙКИ ПОИСКА =====
+KEYWORDS = ["квартира", "flat", "продажа", "sale"]
+CITY = ["гродно", "hrodna"]
+
 seen = set()
 print("RESET DONE - bot memory cleared")
 
@@ -44,7 +48,6 @@ def check():
 
     for site, soup in pages:
 
-        # ===== ИЩЕМ ТОЛЬКО ОБЪЯВЛЕНИЯ КВАРТИР =====
         cards = soup.find_all("a")
 
         for card in cards:
@@ -56,30 +59,12 @@ def check():
 
             full_url = requests.compat.urljoin(site, href)
 
-            # фильтр мусора
             if any(x in full_url for x in ["#", "javascript:", "tel:"]):
                 continue
 
-            # ===== ФИЛЬТР КВАРТИР =====
-            if not any(x in title for x in ["квартира", "flat", "продажа", "sale"]):
+            # ===== ФИЛЬТР: КВАРТИРЫ =====
+            if not any(k in title for k in KEYWORDS):
                 continue
 
-            # ===== УНИКАЛЬНОСТЬ =====
-            if full_url in seen:
-                continue
-
-            seen.add(full_url)
-
-            bot.send_message(
-                CHAT_ID,
-                f"🏠 Квартира:\n{title}\n{full_url}"
-            )
-
-
-while True:
-    try:
-        check()
-    except Exception as e:
-        print("Ошибка:", e)
-
-    time.sleep(300)
+            # ===== ФИЛЬТР: ТОЛЬКО ГРОДНО =====
+            if not any(c in title for c in
