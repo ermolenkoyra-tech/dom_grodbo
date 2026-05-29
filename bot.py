@@ -3,7 +3,6 @@ import requests
 import telebot
 from bs4 import BeautifulSoup
 import os
-import re
 
 # ===== ДАННЫЕ =====
 TOKEN = os.environ.get("TOKEN")
@@ -26,24 +25,8 @@ sites = [
 DK_KEYWORDS = ["жилой дом"]
 OTHER_KEYWORDS = ["грандичи", "девятовка"]
 
-MIN_PRICE = 150000
-MAX_PRICE = 200000
-
 seen = set()
 print("RESET DONE - bot memory cleared")
-
-
-def extract_price(text):
-    """
-    ищем цену в тексте (BYN, руб, €, $)
-    """
-    numbers = re.findall(r"\d{3,9}", text.replace(" ", ""))
-    prices = [int(n) for n in numbers]
-
-    if not prices:
-        return None
-
-    return min(prices)
 
 
 def get_pages():
@@ -77,43 +60,13 @@ def check():
             if any(x in full_url for x in ["#", "javascript:", "tel:"]):
                 continue
 
-            text_block = (link.get_text(" ", strip=True) + " " +
-                          (link.find_parent().get_text(" ", strip=True) if link.find_parent() else "")
-                          ).lower()
-
-            # ===== ЦЕНА =====
-            price = extract_price(text_block)
-
-            if price is None:
-                continue
-
-            if not (MIN_PRICE <= price <= MAX_PRICE):
-                continue
+            text_block = (
+                link.get_text(" ", strip=True) + " " +
+                (link.find_parent().get_text(" ", strip=True) if link.find_parent() else "")
+            ).lower()
 
             # ===== ФИЛЬТРЫ =====
             if "ghb.by" in site:
-                if not any(k in text_block for k in DK_KEYWORDS):
+                if "жилой дом" not in text_block:
                     continue
             else:
-                if not any(k in text_block for k in OTHER_KEYWORDS):
-                    continue
-
-            # ===== ДУБЛИКАТЫ =====
-            if full_url in seen:
-                continue
-
-            seen.add(full_url)
-
-            bot.send_message(
-                CHAT_ID,
-                f"🏠 Найдено\nЦена: {price} BYN\n{link.get_text(strip=True)}\n{full_url}"
-            )
-
-
-while True:
-    try:
-        check()
-    except Exception as e:
-        print("Ошибка:", e)
-
-    time.sleep(300)
