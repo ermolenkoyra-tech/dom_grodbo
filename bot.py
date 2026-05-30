@@ -6,14 +6,6 @@ import os
 
 # ===== ДАННЫЕ =====
 TOKEN = os.environ.get("TOKEN")
-@bot.message_handler(commands=['restart'])
-def restart_search(message):
-    global seen, first_run
-
-    seen.clear()
-    first_run = False
-
-    bot.reply_to(message, "🔄 Поиск сброшен. При следующей проверке будут заново отправлены все найденные объявления.")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 bot = telebot.TeleBot(TOKEN)
@@ -32,6 +24,15 @@ sites = [
 
 seen = set()
 first_run = True
+
+
+# ===== COMMANDS =====
+@bot.message_handler(commands=['restart'])
+def restart_search(message):
+    global seen, first_run
+    seen.clear()
+    first_run = True
+    bot.reply_to(message, "🔄 Поиск сброшен")
 
 
 def get_pages():
@@ -56,7 +57,6 @@ def check():
 
     for site, soup in pages:
 
-        # ===== КЛЮЧЕВЫЕ СЛОВА ПО САЙТАМ =====
         if "ghb.by" in site:
             keywords = ["жилой дом"]
         else:
@@ -88,10 +88,7 @@ def check():
             if not any(k in text for k in keywords):
                 continue
 
-            link = None
-
-            if card.name == "a":
-                link = card.get("href")
+            link = card.get("href") if card.name == "a" else None
 
             if link:
                 link = requests.compat.urljoin(site, link)
@@ -108,10 +105,7 @@ def check():
 
             seen.add(link)
 
-            bot.send_message(
-                CHAT_ID,
-                f"🏗 Найдено:\n\n{text[:300]}\n\n{link}"
-            )
+            bot.send_message(CHAT_ID, f"🏗 Найдено:\n{text[:300]}\n{link}")
 
         if first_run:
             seen.update(current_links)
