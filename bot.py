@@ -6,6 +6,14 @@ import os
 
 # ===== ДАННЫЕ =====
 TOKEN = os.environ.get("TOKEN")
+@bot.message_handler(commands=['restart'])
+def restart_search(message):
+    global seen, first_run
+
+    seen.clear()
+    first_run = False
+
+    bot.reply_to(message, "🔄 Поиск сброшен. При следующей проверке будут заново отправлены все найденные объявления.")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 bot = telebot.TeleBot(TOKEN)
