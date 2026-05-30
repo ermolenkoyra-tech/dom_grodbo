@@ -13,6 +13,7 @@ bot = telebot.TeleBot(TOKEN)
 # ===== САЙТЫ =====
 sites = [
     "https://grodno.urielt.by/",
+    "https://realt.by/belarus/sale/flats/?page=1/",
     "https://realt.by/grodno-region/sale/flats/",
     "https://domovita.by/grodno/flats/sale",
     "https://gohome.by/sale/flat/grodno",
