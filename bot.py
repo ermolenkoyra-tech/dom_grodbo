@@ -7,7 +7,7 @@ def check():
 
         # ===== ФИЛЬТР ПО САЙТАМ =====
         if "ghb.by" in site:
-            keywords = ["жилой дом"]
+            keywords = ["жилой"]
         else:
             keywords = [
                 "грандичи", "грандичская", "белые росы",
