@@ -1,23 +1,73 @@
+import time
+import requests
+import telebot
+from bs4 import BeautifulSoup
+import os
+
+# ===== ДАННЫЕ =====
+TOKEN = os.environ.get("TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+
+bot = telebot.TeleBot(TOKEN)
+
+# ===== САЙТЫ =====
+sites = [
+    "https://grodno.urielt.by/",
+    "https://realt.by/grodno-region/sale/flats/",
+    "https://domovita.by/grodno/flats/sale",
+    "https://gohome.by/sale/flat/grodno",
+    "https://myrealtor.by/ads",
+    "https://www.hommits.by/buy/grodno",
+    "https://ghb.by/ru/construction/price_apartments/"
+]
+
+seen = set()
+first_run = True
+
+
+def get_pages():
+    headers = {"User-Agent": "Mozilla/5.0"}
+    pages = []
+
+    for site in sites:
+        try:
+            r = requests.get(site, headers=headers, timeout=10)
+            soup = BeautifulSoup(r.text, "html.parser")
+            pages.append((site, soup))
+        except Exception as e:
+            print("Ошибка сайта:", site, e)
+
+    return pages
+
+
 def check():
-    global seen
+    global seen, first_run
 
     pages = get_pages()
 
     for site, soup in pages:
 
-        # ===== ФИЛЬТР ПО САЙТАМ =====
+        # ===== КЛЮЧЕВЫЕ СЛОВА ПО САЙТАМ =====
         if "ghb.by" in site:
-            keywords = ["жилой"]
+            keywords = ["жилой дом"]
         else:
             keywords = [
-                "грандичи", "грандичская", "белые росы",
-                "колбасина", "кобринская", "лизы чаикиной",
-                "янки купалы", "кремко", "витебская",
-                "слонимская", "девятовка"
+                "грандичи",
+                "грандичская",
+                "белые росы",
+                "колбасина",
+                "кобринская",
+                "лизы чаикиной",
+                "янки купалы",
+                "кремко",
+                "витебская",
+                "слонимская",
+                "девятовка"
             ]
 
-        # ===== ИЩЕМ КАРТОЧКИ ОБЪЯВЛЕНИЙ =====
         cards = soup.find_all(["h1", "h2", "h3", "a", "p"])
+
+        current_links = set()
 
         for card in cards:
 
@@ -26,46 +76,44 @@ def check():
             if not text:
                 continue
 
-            # ===== ПРОВЕРКА КЛЮЧЕВЫХ СЛОВ =====
-            if any(k in text for k in keywords):
-
-                link = None
-                if card.name == "a":
-                    link = card.get("href")
-
-                if link:
-                    link = requests.compat.urljoin(site, link)
-                else:
-                    link = site
-
-                if link in seen:
-                    continue
-
-                seen.add(link)
-
-                bot.send_message(
-                    CHAT_ID,
-                    f"🏗 Найдено:\n{text[:200]}\n{link}"
-                )
-
-        # ===== ССЫЛКИ (как запасной вариант) =====
-        links = set()
-
-        for a in soup.find_all("a"):
-            href = a.get("href")
-
-            if not href:
+            if not any(k in text for k in keywords):
                 continue
 
-            full_url = requests.compat.urljoin(site, href)
+            link = None
 
-            if any(x in full_url for x in ["#", "javascript:", "tel:"]):
+            if card.name == "a":
+                link = card.get("href")
+
+            if link:
+                link = requests.compat.urljoin(site, link)
+            else:
+                link = site
+
+            current_links.add(link)
+
+            if first_run:
                 continue
 
-            links.add(full_url)
+            if link in seen:
+                continue
 
-        new_links = links - seen
+            seen.add(link)
 
-        for item in new_links:
-            seen.add(item)
-            bot.send_message(CHAT_ID, f"🆕 Обновление:\n{item}")
+            bot.send_message(
+                CHAT_ID,
+                f"🏗 Найдено:\n\n{text[:300]}\n\n{link}"
+            )
+
+        if first_run:
+            seen.update(current_links)
+
+    first_run = False
+
+
+while True:
+    try:
+        check()
+    except Exception as e:
+        print("Ошибка:", e)
+
+    time.sleep(300)
