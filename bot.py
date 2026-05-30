@@ -81,7 +81,7 @@ def check():
 
     for site, soup in pages:
 
-        if "ghb.by" in site:
+        if "https://ghb.by/ru/construction/price_apartments/" in site:
             keywords = ["жилой дом"]
         else:
             keywords = [
