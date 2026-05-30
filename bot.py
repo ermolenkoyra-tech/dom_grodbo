@@ -23,16 +23,6 @@ sites = [
 ]
 
 seen = set()
-first_run = True
-
-
-# ===== COMMANDS =====
-@bot.message_handler(commands=['restart'])
-def restart_search(message):
-    global seen, first_run
-    seen.clear()
-    first_run = True
-    bot.reply_to(message, "🔄 Поиск сброшен")
 
 
 def get_pages():
@@ -50,8 +40,42 @@ def get_pages():
     return pages
 
 
+def extract_cards(soup):
+    cards = []
+
+    # более мягкий и реалистичный фильтр
+    for block in soup.find_all(["div", "article", "li"]):
+
+        text = block.get_text(" ", strip=True)
+
+        if not text:
+            continue
+
+        # сниженный порог, чтобы не терять объявления
+        if len(text) < 40:
+            continue
+
+        if not block.find("a", href=True):
+            continue
+
+        cards.append(block)
+
+    return cards
+
+
+def extract_link(card, site):
+    a = card.find("a", href=True)
+    if a:
+        return requests.compat.urljoin(site, a["href"])
+    return None
+
+
+def extract_text(card):
+    return card.get_text(" ", strip=True).lower()
+
+
 def check():
-    global seen, first_run
+    global seen
 
     pages = get_pages()
 
@@ -74,30 +98,18 @@ def check():
                 "девятовка"
             ]
 
-        cards = soup.find_all(["h1", "h2", "h3", "a", "p"])
-
-        current_links = set()
+        cards = extract_cards(soup)
 
         for card in cards:
 
-            text = card.get_text(" ", strip=True).lower()
-
-            if not text:
-                continue
+            text = extract_text(card)
 
             if not any(k in text for k in keywords):
                 continue
 
-            link = card.get("href") if card.name == "a" else None
+            link = extract_link(card, site)
 
-            if link:
-                link = requests.compat.urljoin(site, link)
-            else:
-                link = site
-
-            current_links.add(link)
-
-            if first_run:
+            if not link:
                 continue
 
             if link in seen:
@@ -105,12 +117,10 @@ def check():
 
             seen.add(link)
 
-            bot.send_message(CHAT_ID, f"🏗 Найдено:\n{text[:300]}\n{link}")
-
-        if first_run:
-            seen.update(current_links)
-
-    first_run = False
+            bot.send_message(
+                CHAT_ID,
+                f"🏗 Найдено:\n{text[:300]}\n{link}"
+            )
 
 
 while True:
