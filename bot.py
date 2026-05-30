@@ -3,14 +3,17 @@ import requests
 import telebot
 from bs4 import BeautifulSoup
 import os
+import json
 
-# ===== ДАННЫЕ =====
 TOKEN = os.environ.get("TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
+if not TOKEN or not CHAT_ID:
+    raise ValueError("TOKEN или CHAT_ID не заданы")
+
+CHAT_ID = int(str(CHAT_ID).strip())
 bot = telebot.TeleBot(TOKEN)
 
-# ===== САЙТЫ =====
 sites = [
     "https://grodno.urielt.by/",
     "https://realt.by/belarus/sale/flats/?page=1/",
@@ -22,20 +25,46 @@ sites = [
     "https://ghb.by/ru/construction/price_apartments/"
 ]
 
-seen = set()
+# ===== LOAD MEMORY =====
+try:
+    with open("seen.json", "r") as f:
+        seen = set(json.load(f))
+except:
+    seen = set()
+
+
+def save_seen():
+    try:
+        with open("seen.json", "w") as f:
+            json.dump(list(seen)[-5000:], f)
+    except:
+        pass
+
+
+headers = {
+    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "ru-RU,ru;q=0.9"
+}
 
 
 def get_pages():
-    headers = {"User-Agent": "Mozilla/5.0"}
     pages = []
 
     for site in sites:
         try:
-            r = requests.get(site, headers=headers, timeout=10)
+            r = requests.get(site, headers=headers, timeout=12)
+
+            print(site, "->", len(r.text))  # 👈 диагностика
+
+            if len(r.text) < 1000:
+                print("⚠️ ПУСТО/АНТИБОТ:", site)
+                continue
+
             soup = BeautifulSoup(r.text, "html.parser")
             pages.append((site, soup))
+
         except Exception as e:
-            print("Ошибка сайта:", site, e)
+            print("Ошибка:", site, e)
 
     return pages
 
@@ -43,15 +72,9 @@ def get_pages():
 def extract_cards(soup):
     cards = []
 
-    # более мягкий и реалистичный фильтр
-    for block in soup.find_all(["div", "article", "li"]):
+    for block in soup.find_all(["article", "div", "li"]):
 
         text = block.get_text(" ", strip=True)
-
-        if not text:
-            continue
-
-        # сниженный порог, чтобы не терять объявления
         if len(text) < 40:
             continue
 
@@ -65,9 +88,15 @@ def extract_cards(soup):
 
 def extract_link(card, site):
     a = card.find("a", href=True)
-    if a:
-        return requests.compat.urljoin(site, a["href"])
-    return None
+    if not a:
+        return None
+
+    link = requests.compat.urljoin(site, a["href"])
+
+    if any(x in link for x in ["#", "javascript:", "tel:"]):
+        return None
+
+    return link
 
 
 def extract_text(card):
@@ -79,24 +108,23 @@ def check():
 
     pages = get_pages()
 
+    keywords_base = [
+        "грандичи",
+        "грандичская",
+        "белые росы",
+        "колбасина",
+        "кобринская",
+        "лизы чаикиной",
+        "янки купалы",
+        "кремко",
+        "витебская",
+        "слонимская",
+        "девятовка"
+    ]
+
     for site, soup in pages:
 
-        if "https://ghb.by/ru/construction/price_apartments/" in site:
-            keywords = ["жилой дом"]
-        else:
-            keywords = [
-                "грандичи",
-                "грандичская",
-                "белые росы",
-                "колбасина",
-                "кобринская",
-                "лизы чаикиной",
-                "янки купалы",
-                "кремко",
-                "витебская",
-                "слонимская",
-                "девятовка"
-            ]
+        keywords = ["жилой дом"] if "ghb.by" in site else keywords_base
 
         cards = extract_cards(soup)
 
@@ -109,18 +137,14 @@ def check():
 
             link = extract_link(card, site)
 
-            if not link:
-                continue
-
-            if link in seen:
+            if not link or link in seen:
                 continue
 
             seen.add(link)
 
-            bot.send_message(
-                CHAT_ID,
-                f"🏗 Найдено:\n{text[:300]}\n{link}"
-            )
+            bot.send_message(CHAT_ID, f"🏗 Найдено:\n{text[:300]}\n{link}")
+
+    save_seen()
 
 
 while True:
